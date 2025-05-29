@@ -2,13 +2,11 @@
 
  Este script foi desenvolvido para facilitar a extração de informações da **Planta Cadastral de Itajaí/SC**, permitindo que usuários realizem o download dos dados exibidos no mapa, diretamente pelo navegador.
 
----
 
 ## 🌐 Acesso à Planta Cadastral
 
   🔗 [https://geoitajai.github.io/geo/plantacadastral.html](https://geoitajai.github.io/geo/plantacadastral.html)
 
----
 
 ## ⚙️ Como Utilizar
 
@@ -21,16 +19,15 @@
   3. Na aba **Console**, digite o seguinte comando para liberar a funcionalidade de colar código:
 
      ```javascript
-    allow pasting;
+     allow pasting;
 
   4. Em seguida, cole o script abaixo no console e pressione Enter:
 
      ```javascript
-    javascript:(function(){
-    fetch("https://raw.githubusercontent.com/werneralessandro/chrome-export-geoitajai/refs/heads/main/chrome_export.js")
+     javascript:(function(){fetch("https://raw.githubusercontent.com/werneralessandro/chrome-export-geoitajai/refs/heads/main/chrome_export.js")
         .then(r => r.text())
         .then(eval);
-    })();
+     })();
 
 ## 📦 Sobre o Script
 
