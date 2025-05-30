@@ -16,7 +16,7 @@
    
   2. Pressione `F12` para abrir o **DevTools** do navegador Google Chrome.
 
-  3. Na aba **Console**, digite o seguinte comando para liberar a funcionalidade de colar código:
+  3. Na aba **Console**, digite o seguinte comando para liberar a funcionalidade de colar código (Apenas uma vez):
 
      ```javascript
      allow pasting
