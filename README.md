@@ -28,6 +28,9 @@
         .then(r => r.text())
         .then(eval);
      })();
+  5. Retorne a página e verifique o resultado
+
+     ![image](https://github.com/user-attachments/assets/261ffb69-d474-4a18-8288-3680e09fe63b)
 
 ## 📦 Sobre o Script
 
