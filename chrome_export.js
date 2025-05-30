@@ -3,7 +3,7 @@
     if (window.XLSX) return;
     return new Promise((resolve, reject) => {
       const script = document.createElement('script');
-      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+      script.src = 'https://raw.githubusercontent.com/werneralessandro/chrome-export-geoitajai/refs/heads/main/xlsx.full.min.js';
       script.onload = () => resolve();
       script.onerror = () => reject('Falha ao carregar biblioteca XLSX');
       document.head.appendChild(script);
