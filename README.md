@@ -19,7 +19,7 @@
   3. Na aba **Console**, digite o seguinte comando para liberar a funcionalidade de colar código:
 
      ```javascript
-     allow pasting;
+     allow pasting
 
   4. Em seguida, cole o script abaixo no console e pressione Enter:
 
