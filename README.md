@@ -24,7 +24,7 @@
   4. Em seguida, cole o script abaixo no console e pressione Enter:
 
      ```javascript
-     javascript:(function(){fetch("https://raw.githubusercontent.com/werneralessandro/chrome-export-geoitajai/refs/heads/main/chrome_export.js")
+     javascript:(function(){fetch("https://raw.githubusercontent.com/werneralessandro/chrome-export-geoitajai/refs/heads/main/script/chrome_export.js")
         .then(r => r.text())
         .then(eval);
      })();
