@@ -127,7 +127,7 @@ app.post("/processar", upload.single("arquivo"), async (req, res) => {
 
     const arquivos = await fsPromises.readdir(OUTPUT_DIR);
     for (const nome of arquivos) {
-      if (nome.endsWith(".xlsx")) {
+      if (nome.endsWith(".xlsx") || nome.endsWith(".csv")) {
         await fsPromises.unlink(path.join(OUTPUT_DIR, nome));
       }
     }
@@ -155,7 +155,7 @@ app.post("/processar", upload.single("arquivo"), async (req, res) => {
     });
 
     const resultados = [];
-    const razaoCache = {};  // Cache por razão social
+    const razaoCache = {};
 
     for (let i = 0; i < data.length; i++) {
       const codigoImovel = data[i].ncodimov?.trim();
@@ -163,9 +163,8 @@ app.post("/processar", upload.single("arquivo"), async (req, res) => {
 
       if (!codigoImovel) continue;
 
-      // Verificar cache de razão social
       if (razaoSocial && razaoCache[razaoSocial]) {
-        log(`🔁 Já processado para razão social "${razaoSocial}". Reutilizando CPF/CNPJ: ${razaoCache[razaoSocial]}`);
+        log(`🔁 Cache: ${razaoSocial} => ${razaoCache[razaoSocial]}`);
         resultados.push({
           ...data[i],
           "cpf/cnpj": razaoCache[razaoSocial],
@@ -173,7 +172,7 @@ app.post("/processar", upload.single("arquivo"), async (req, res) => {
         continue;
       }
 
-      log(`🔍 Buscando proprietário do imóvel código: ${codigoImovel}`);
+      log(`🔍 Buscando código: ${codigoImovel}`);
       pdfUrls = [];
 
       try {
@@ -202,14 +201,13 @@ app.post("/processar", upload.single("arquivo"), async (req, res) => {
           const pdfUrl = pdfUrls[0];
           const pdfPath = path.join(PDF_DIR, `certidao_${codigoImovel}_${Date.now()}.pdf`);
           await downloadPDF(pdfUrl, pdfPath);
-          log(`📄 PDF baixado para código ${codigoImovel}`);
+          log(`📄 PDF: ${codigoImovel}`);
 
           const text = await extractPDFText(pdfPath);
           const extra = extractDataFromPDFText(text);
-          log(`✅ CPF/CNPJ extraído via PDF para código ${codigoImovel}: ${extra["cpf/cnpj"]}`);
+          log(`✅ PDF CPF/CNPJ: ${extra["cpf/cnpj"]}`);
 
           await fsPromises.unlink(pdfPath);
-          log(`🗑️ PDF temporário deletado: ${path.basename(pdfPath)}`);
 
           resultados.push({
             ...data[i],
@@ -221,8 +219,8 @@ app.post("/processar", upload.single("arquivo"), async (req, res) => {
           }
         } else {
           const extra = await extractFromPage(page);
-          log(`⚠️ PDF não encontrado. Extraindo direto da página para código ${codigoImovel}`);
-          log(`✅ CPF/CNPJ extraído via HTML: ${extra["cpf/cnpj"]}`);
+          log(`⚠️ Sem PDF. Buscando via HTML...`);
+          log(`✅ HTML CPF/CNPJ: ${extra["cpf/cnpj"]}`);
 
           const cpfFormatado = formatarCpfCnpj(extra["cpf/cnpj"]);
 
@@ -238,7 +236,7 @@ app.post("/processar", upload.single("arquivo"), async (req, res) => {
 
         await new Promise((resolve) => setTimeout(resolve, 1000));
       } catch (err) {
-        errorLog(`Erro ao processar código ${codigoImovel}: ${err.message}`);
+        errorLog(`Erro código ${codigoImovel}: ${err.message}`);
         resultados.push({
           ...data[i],
           "cpf/cnpj": "ERRO",
@@ -247,26 +245,37 @@ app.post("/processar", upload.single("arquivo"), async (req, res) => {
     }
 
     await browser.close();
-    log("📦 Processamento finalizado. Gerando arquivo XLSX...");
+    log("📦 Processamento finalizado. Exportando...");
 
+    const timestamp = Date.now();
+    const nomeArquivoXLSX = `resultados_${timestamp}.xlsx`;
+    const nomeArquivoCSV = `resultados_${timestamp}.csv`;
+
+    const caminhoXLSX = path.join(OUTPUT_DIR, nomeArquivoXLSX);
+    const caminhoCSV = path.join(OUTPUT_DIR, nomeArquivoCSV);
+
+    // XLSX
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(resultados);
     XLSX.utils.book_append_sheet(wb, ws, "Resultados");
+    XLSX.writeFile(wb, caminhoXLSX);
 
-    const nomeArquivo = `resultados_${Date.now()}.xlsx`;
-    const caminhoFinal = path.join(OUTPUT_DIR, nomeArquivo);
-    XLSX.writeFile(wb, caminhoFinal);
+    log(`🔗 Link XLSX: http://localhost/api/outputs/${nomeArquivoXLSX}`);
 
-    log(`✅ Arquivo XLSX pronto para download.`);
-    log(`🔗 Link: http://localhost/api/outputs/${nomeArquivo}`);
+    // CSV
+    const csvFinal = Papa.unparse(resultados);
+    await fsPromises.writeFile(caminhoCSV, csvFinal, "utf8");
 
-    res.download(caminhoFinal, "resultados.xlsx", (err) => {
+    log(`🔗 Link CSV: http://localhost/api/outputs/${nomeArquivoCSV}`);
+    log(`📥 Enviando CSV para download automático...`);
+
+    res.download(caminhoCSV, "resultados.csv", (err) => {
       if (err) {
-        errorLog("Falha ao iniciar download automático. Use o link acima.");
+        errorLog("❌ Erro no download automático. Baixe manual pelo link acima.");
       }
     });
   } catch (err) {
-    errorLog("Erro interno no servidor: " + err.message);
+    errorLog("Erro interno: " + err.message);
     res.status(500).send("Erro interno");
   }
 });

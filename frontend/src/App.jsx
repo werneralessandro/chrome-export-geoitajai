@@ -22,14 +22,27 @@ export default function CSVToXLSXConverter() {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
-
   const logsEndRef = useRef(null);
+
+  const [downloadXLSXLink, setDownloadXLSXLink] = useState(null);
+  const [downloadCSVLink, setDownloadCSVLink] = useState(null);
 
   useEffect(() => {
     const eventSource = new EventSource('/api/logs');
 
     eventSource.onmessage = (event) => {
-      setLogs((prev) => [...prev, `${new Date().toLocaleTimeString()}: ${event.data}`]);
+      const message = event.data;
+      setLogs((prev) => [...prev, `${new Date().toLocaleTimeString()}: ${message}`]);
+
+      if (message.includes('Link XLSX:')) {
+        const url = message.split('Link XLSX:')[1].trim();
+        setDownloadXLSXLink(url);
+      }
+
+      if (message.includes('Link CSV:')) {
+        const url = message.split('Link CSV:')[1].trim();
+        setDownloadCSVLink(url);
+      }
     };
 
     eventSource.onerror = () => {
@@ -44,7 +57,7 @@ export default function CSVToXLSXConverter() {
 
   useEffect(() => {
     if (logsEndRef.current) {
-      logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
+      logsEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
     }
   }, [logs]);
 
@@ -83,12 +96,12 @@ export default function CSVToXLSXConverter() {
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = 'imoveis_com_cpfs.xlsx';
+      link.download = 'imoveis_com_cpfs.csv';
       document.body.appendChild(link);
       link.click();
       link.remove();
 
-      appendLog('Arquivo XLSX gerado com sucesso.');
+      appendLog('Arquivo CSV gerado com sucesso.');
       setSnackbar({ open: true, message: 'Arquivo Excel gerado com sucesso!', severity: 'success' });
       setProgress(100);
     } catch (err) {
@@ -127,27 +140,50 @@ export default function CSVToXLSXConverter() {
               filesLimit={1}
             />
           </Box>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', my: 1 }}>
+            {file && (
+              <Chip
+                icon={<AttachFileIcon />}
+                label={file.name}
+                onDelete={() => setFile(null)}
+                sx={{ mb: 0, padding: 0 }}
+              />
+            )}
 
-          {file && (
-            <Chip
-              icon={<AttachFileIcon />}
-              label={file.name}
-              onDelete={() => setFile(null)}
-              sx={{ mb: 0, padding: 0 }}
-            />
-          )}
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={handleSubmit}
+              disabled={loading}
+              startIcon={loading && <CircularProgress size={20} />}
+            >
+              {loading ? 'Processando...' : 'Processar'}
+            </Button>
 
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={handleSubmit}
-            disabled={loading}
-            startIcon={loading && <CircularProgress size={20} />}
-            sx={{ my: 1 }}
-          >
-            {loading ? 'Processando...' : 'Processar e Exportar XLSX'}
-          </Button>
+            {downloadXLSXLink && (
+              <Button
+                variant="outlined"
+                color="success"
+                href={downloadXLSXLink}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Baixar XLSX
+              </Button>
+            )}
 
+            {downloadCSVLink && (
+              <Button
+                variant="outlined"
+                color="secondary"
+                href={downloadCSVLink}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Baixar CSV
+              </Button>
+            )}
+          </Box>
           <Paper
             variant="outlined"
             sx={{
@@ -163,7 +199,7 @@ export default function CSVToXLSXConverter() {
             {logs.length
               ? logs.map((line, i) => <Typography key={i}>{line}</Typography>)
               : 'Logs do processo'}
-            <div ref={logsEndRef} />
+            <Box ref={logsEndRef} />
           </Paper>
 
           <Typography variant="body2" sx={{ mt: 1, color: '#000000' }}>
