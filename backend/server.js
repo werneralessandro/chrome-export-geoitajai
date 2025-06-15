@@ -45,22 +45,18 @@ function errorLog(message) {
   sendLogToClients(`❌ ${message}`);
 }
 
-// Diretórios
 const OUTPUT_DIR = path.resolve(__dirname, "outputs");
 const PDF_DIR = path.join(OUTPUT_DIR, "pdfs");
 const URL_CND = "https://iss.itajai.sc.gov.br/sefaz/jsp/cnd/index.jsp";
 
-// Multer config
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
-// Criar diretórios
 async function setupDirectories() {
   await fsPromises.mkdir(OUTPUT_DIR, { recursive: true });
   await fsPromises.mkdir(PDF_DIR, { recursive: true });
 }
 
-// Baixar PDF
 async function downloadPDF(url, filePath) {
   return new Promise((resolve, reject) => {
     const file = fs.createWriteStream(filePath);
@@ -75,7 +71,6 @@ async function downloadPDF(url, filePath) {
   });
 }
 
-// PDF
 async function extractPDFText(pdfPath) {
   try {
     const dataBuffer = fs.readFileSync(pdfPath);
@@ -93,7 +88,6 @@ function extractDataFromPDFText(text) {
   };
 }
 
-// HTML
 async function extractFromPage(page) {
   return await page.evaluate(() => {
     const getValorPorLabel = (labels) => {
@@ -126,13 +120,11 @@ function formatarCpfCnpj(valor) {
   return digits;
 }
 
-// PROCESSAMENTO PRINCIPAL
 app.post("/processar", upload.single("arquivo"), async (req, res) => {
   try {
     await setupDirectories();
     log("📥 CSV recebido. Iniciando processamento...");
 
-    // Limpa arquivos XLSX antigos
     const arquivos = await fsPromises.readdir(OUTPUT_DIR);
     for (const nome of arquivos) {
       if (nome.endsWith(".xlsx")) {
@@ -163,10 +155,23 @@ app.post("/processar", upload.single("arquivo"), async (req, res) => {
     });
 
     const resultados = [];
+    const razaoCache = {};  // Cache por razão social
 
     for (let i = 0; i < data.length; i++) {
       const codigoImovel = data[i].ncodimov?.trim();
+      const razaoSocial = data[i].nrazaoso?.trim();
+
       if (!codigoImovel) continue;
+
+      // Verificar cache de razão social
+      if (razaoSocial && razaoCache[razaoSocial]) {
+        log(`🔁 Já processado para razão social "${razaoSocial}". Reutilizando CPF/CNPJ: ${razaoCache[razaoSocial]}`);
+        resultados.push({
+          ...data[i],
+          "cpf/cnpj": razaoCache[razaoSocial],
+        });
+        continue;
+      }
 
       log(`🔍 Buscando proprietário do imóvel código: ${codigoImovel}`);
       pdfUrls = [];
@@ -210,15 +215,25 @@ app.post("/processar", upload.single("arquivo"), async (req, res) => {
             ...data[i],
             ...extra,
           });
+
+          if (razaoSocial && extra["cpf/cnpj"]) {
+            razaoCache[razaoSocial] = extra["cpf/cnpj"];
+          }
         } else {
           const extra = await extractFromPage(page);
           log(`⚠️ PDF não encontrado. Extraindo direto da página para código ${codigoImovel}`);
           log(`✅ CPF/CNPJ extraído via HTML: ${extra["cpf/cnpj"]}`);
 
+          const cpfFormatado = formatarCpfCnpj(extra["cpf/cnpj"]);
+
           resultados.push({
             ...data[i],
-            "cpf/cnpj": formatarCpfCnpj(extra["cpf/cnpj"]),
+            "cpf/cnpj": cpfFormatado,
           });
+
+          if (razaoSocial && cpfFormatado) {
+            razaoCache[razaoSocial] = cpfFormatado;
+          }
         }
 
         await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -243,9 +258,7 @@ app.post("/processar", upload.single("arquivo"), async (req, res) => {
     XLSX.writeFile(wb, caminhoFinal);
 
     log(`✅ Arquivo XLSX pronto para download.`);
-    //log(`🔗 Link: http://localhost:3000/outputs/${nomeArquivo}`);
     log(`🔗 Link: http://localhost/api/outputs/${nomeArquivo}`);
-
 
     res.download(caminhoFinal, "resultados.xlsx", (err) => {
       if (err) {

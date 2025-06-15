@@ -30,7 +30,7 @@ COPY frontend/dist ./frontend
 # Copia nginx.conf
 COPY nginx.conf /etc/nginx/nginx.conf
 
-EXPOSE 3008
+EXPOSE 80
 
 # Starta nginx e backend
 CMD ["sh", "-c", "service nginx start && node backend/server.js"]
